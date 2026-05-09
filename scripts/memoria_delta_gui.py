@@ -257,76 +257,61 @@ class MemoriaApp(tk.Tk):
             ### 2026-05-09
             - context entry
         """
+        lines = content.splitlines(keepends=False)
+        delta = self._parse_delta(delta_raw)
+        data = delta.get("data", datetime.today().strftime("%Y-%m-%d"))
 
-        def _apply_delta_to_string(self, content, delta_raw):
-            """
-            Aplica delta JSON (v5) sobre o arquivo Markdown de memória.
+        # 1. REMOVE (match de conteúdo nas bullets existentes)
+        remove_list = delta.get("REMOVE", [])
+        if remove_list:
+            new_lines = []
+            for l in lines:
+                stripped = l.strip()
+                if any(
+                    rm.strip() == stripped.lstrip("- ") or f"[{rm.strip()}]" in stripped
+                    for rm in remove_list
+                    if rm.strip()
+                ):
+                    continue
+                new_lines.append(l)
+            lines = new_lines
 
-            Estrutura da memória:
-              ## ESTADO_ATUAL
-                ### 2026-05-09
-                - [TAG] entry
-              ## CONTEXTO_RECENTE
-                ### 2026-05-09
-                - context entry
-            """
-            lines = content.splitlines(keepends=False)
-            delta = self._parse_delta(delta_raw)
-            data = delta.get("data", datetime.today().strftime("%Y-%m-%d"))
-
-            # 1. REMOVE (match de conteúdo nas bullets existentes)
-            remove_list = delta.get("REMOVE", [])
-            if remove_list:
-                new_lines = []
-                for l in lines:
-                    stripped = l.strip()
-                    # Remove se conteúdo (sem prefixo "- [TAG] ") match em alguma entrada REMOVE
-                    if any(
-                        rm.strip() == stripped.lstrip("- ")
-                        or f"[{rm.strip()}]" in stripped
-                        for rm in remove_list
-                        if rm.strip()
-                    ):
-                        continue
+        # 2. UPDATE (substitui texto antigo → novo nas bullets existentes)
+        update_map = delta.get("UPDATE", {})
+        if update_map:
+            new_lines = []
+            for l in lines:
+                replaced = False
+                for old_text, new_info in update_map.items():
+                    if old_text.strip() and old_text.strip() in l:
+                        if isinstance(new_info, dict):
+                            new_after = new_info.get("DEPOIS", "")
+                        elif isinstance(new_info, str):
+                            new_after = new_info
+                        else:
+                            continue
+                        prefix = re.match(r"^(\s*-\s*)", l)
+                        if prefix:
+                            new_lines.append(f"{prefix.group(1)}{new_after}")
+                        else:
+                            new_lines.append(new_after)
+                        replaced = True
+                        break
+                if not replaced:
                     new_lines.append(l)
-                lines = new_lines
+            lines = new_lines
 
-            # 2. UPDATE (substitui texto antigo → novo nas bullets existentes)
-            update_map = delta.get("UPDATE", {})
-            if update_map:
-                new_lines = []
-                for l in lines:
-                    replaced = False
-                    for old_text, new_info in update_map.items():
-                        if old_text.strip() and old_text.strip() in l:
-                            if isinstance(new_info, dict):
-                                new_after = new_info.get("DEPOIS", "")
-                            elif isinstance(new_info, str):
-                                new_after = new_info
-                            else:
-                                continue
-                            prefix = re.match(r"^(\s*-\s*)", l)
-                            if prefix:
-                                new_lines.append(f"{prefix.group(1)}{new_after}")
-                            else:
-                                new_lines.append(new_after)
-                            replaced = True
-                            break
-                    if not replaced:
-                        new_lines.append(l)
-                lines = new_lines
+        # 3. ADD (insere em ## ESTADO_ATUAL ### <data>)
+        add_items = delta.get("ADD", [])
+        if add_items:
+            lines = self._add_items_to_state(lines, add_items, data)
 
-            # 3. ADD (insere em ## ESTADO_ATUAL ### <data>)
-            add_items = delta.get("ADD", [])
-            if add_items:
-                lines = self._add_items_to_state(lines, add_items, data)
+        # 4. CONTEXTO_RECENTE (adiciona em ## CONTEXTO_RECENTE ### <data>)
+        contexto = delta.get("CONTEXTO_RECENTE", "")
+        if contexto:
+            lines = self._update_context_recente(lines, contexto, data)
 
-            # 4. CONTEXTO_RECENTE (adiciona em ## CONTEXTO_RECENTE ### <data>)
-            contexto = delta.get("CONTEXTO_RECENTE", "")
-            if contexto:
-                lines = self._update_context_recente(lines, contexto, data)
-
-            return "\n".join(lines) + "\n"
+        return "\n".join(lines) + "\n"
 
     def _add_items_to_state(self, lines, items, data):
         """Inserta ADD entries em ## ESTADO_ATUAL ### <data>."""
