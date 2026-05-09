@@ -246,76 +246,208 @@ class MemoriaApp(tk.Tk):
     # --- PARSING DETERMINISTICO ---
 
     def _apply_delta_to_string(self, content, delta_raw):
+        """
+        Aplica delta JSON (v5) sobre o arquivo Markdown de memória.
+
+        Estrutura esperada da memória:
+          ## ESTADO_ATUAL
+            ### 2026-05-09
+            - [TAG] entry
+          ## CONTEXTO_RECENTE
+            ### 2026-05-09
+            - context entry
+        """
         lines = content.splitlines(keepends=False)
         delta = self._parse_delta(delta_raw)
-        existing_ids = {
-            int(m.group(1)) for l in lines if (m := re.match(r"^\s*(\d+)\.", l))
-        }
+        data = delta.get("data", datetime.today().strftime("%Y-%m-%d"))
 
-        # 1. REMOVE
-        for rid in delta.get("REMOVE", []):
-            if rid in existing_ids:
-                lines = [l for l in lines if not re.match(rf"^\s*{rid}\.", l)]
+        # 1. REMOVE (busca substring exata nas linhas de bullet)
+        remove_list = delta.get("REMOVE", [])
+        if remove_list:
+            result = []
+            for l in lines:
+                skip = False
+                for rm in remove_list:
+                    # Remove por match de conteúdo (ignoring bullet prefix)
+                    stripped = l.strip().lstrip("- ")
+                    if stripped == rm or l.strip() == f"- [{rm}]" or f"- [{rm}]" in l:
+                        skip = True
+                        break
+                if not skip:
+                    result.append(l)
+            lines = result
 
-        # 2. UPDATE
-        for rid, upd in delta.get("UPDATE", {}).items():
-            for i, line in enumerate(lines):
-                if re.match(rf"^\s*{rid}\.", line):
-                    # Preserva indentacao se houver, mas reescreve a linha
-                    lines[i] = re.sub(
-                        rf"^\s*{rid}\..*", f"{rid}. {upd.get('DEPOIS', line)}", line
-                    )
-                    break
+        # 2. UPDATE (substitui texto antigo → novo nas bullets existentes)
+        update_map = delta.get("UPDATE", {})
+        if update_map:
+            new_lines = []
+            for l in lines:
+                replaced = False
+                for old_text, new_info in update_map.items():
+                    if old_text in l:
+                        new_after = new_info.get(
+                            "DEPOIS", new_info if isinstance(new_info, str) else ""
+                        )
+                        # Reconstrói a linha mantendo o prefixo de bullet
+                        prefix = re.match(r"^(\s*-\s*)", l)
+                        if prefix:
+                            p = prefix.group(1)
+                            new_lines.append(f"{p}{new_after}")
+                        else:
+                            new_lines.append(new_after)
+                        replaced = True
+                        break
+                if not replaced:
+                    new_lines.append(l)
+            lines = new_lines
 
-        # 3. ADD
-        if delta.get("ADD"):
-            max_id = max(existing_ids, default=0)
-            for idx, item in enumerate(delta["ADD"]):
-                new_id = max_id + idx + 1
-                lines.append(f"{new_id}. [{item['tag']}] {item['text']}")
+        # 3. ADD (insere novas entradas na seção ## ESTADO_ATUAL sob a data correta)
+        add_items = delta.get("ADD", [])
+        if add_items:
+            lines = self._add_items_to_state(lines, add_items, data)
+
+        # 4. CONTEXTO_RECENTE (atualiza/apende em ## CONTEXTO_RECENTE)
+        contexto = delta.get("CONTEXTO_RECENTE", "")
+        if contexto:
+            lines = self._update_context_recente(lines, contexto, data)
 
         return "\n".join(lines) + "\n"
 
+    def _add_items_to_state(self, lines, items, data):
+        """Inserta ADD entries em ## ESTADO_ATUAL ### <data>."""
+        # Verifica se ## ESTADO_ATUAL existe
+        estado_idx = None
+        for i, l in enumerate(lines):
+            if l.strip().startswith("## ESTADO_ATUAL"):
+                estado_idx = i
+                break
+
+        if estado_idx is None:
+            # Cria a seção se não existir
+            lines.extend(
+                [
+                    "## ESTADO_ATUAL",
+                    f"### {data}",
+                ]
+                + [f"- [{it.get('tag', 'INFO')}] {it['text']}" for it in items]
+                + [""]
+            )
+            return lines
+
+        # Procura ### <data> dentro de ESTADO_ATUAL
+        date_idx = None
+        for i in range(estado_idx + 1, len(lines)):
+            stripped = lines[i].strip()
+            if stripped.startswith("### "):
+                if data in stripped:
+                    date_idx = i
+                    break
+                else:
+                    # Encontrou outra data → parar busca
+                    break
+
+        if date_idx is None:
+            # Cria ### <data> antes da próxima seção ou ao final
+            insert_at = self._find_next_header(lines, estado_idx + 1, level=2)
+            new_block = [f"### {data}", ""]
+            for it in items:
+                new_block.append(f"- [{it.get('tag', 'INFO')}] {it['text']}")
+            lines = lines[:insert_at] + new_block + lines[insert_at:]
+        else:
+            # Insere bullets após a linha de data (ou após bullets existentes)
+            insert_pos = date_idx + 1
+            while insert_pos < len(lines) and lines[insert_pos].strip().startswith(
+                "- "
+            ):
+                insert_pos += 1
+            for it in reversed(items):
+                lines.insert(insert_pos, f"- [{it.get('tag', 'INFO')}] {it['text']}")
+
+        return lines
+
+    def _update_context_recente(self, lines, contexto, data):
+        """Atualiza ou adiciona entry em ## CONTEXTO_RECENTE ### <data>."""
+        ctx_idx = None
+        for i, l in enumerate(lines):
+            if l.strip().startswith("## CONTEXTO_RECENTE"):
+                ctx_idx = i
+                break
+
+        if ctx_idx is None:
+            lines.extend(["", "## CONTEXTO_RECENTE", f"### {data}", f"- {contexto}"])
+            return lines
+
+        # Procura ### <data>
+        date_idx = None
+        for i in range(ctx_idx + 1, len(lines)):
+            stripped = lines[i].strip()
+            if stripped.startswith("### "):
+                if data in stripped:
+                    date_idx = i
+                    break
+                else:
+                    break
+
+        if date_idx is None:
+            insert_at = self._find_next_header(lines, ctx_idx + 1, level=2)
+            lines = (
+                lines[:insert_at] + [f"### {data}", f"- {contexto}"] + lines[insert_at:]
+            )
+        else:
+            # Adiciona bullet ao final do dia
+            insert_pos = date_idx + 1
+            while insert_pos < len(lines) and lines[insert_pos].strip().startswith(
+                "- "
+            ):
+                insert_pos += 1
+            lines.insert(insert_pos, f"- {contexto}")
+
+        return lines
+
+    def _find_next_header(self, lines, start, level=2):
+        """Encontra o próximo header do mesmo nível ou retorna o final."""
+        for i in range(start, len(lines)):
+            stripped = lines[i].strip()
+            if stripped.startswith("## ") or stripped.startswith("# "):
+                return i
+            if re.match(r"^#{2,} ", stripped):
+                return i
+        return len(lines)
+
     def _parse_delta(self, raw):
-        delta = {"ADD": [], "UPDATE": {}, "REMOVE": []}
-        in_sec = None
-        for line in raw.splitlines():
-            l = line.strip()
-            if not l:
-                continue
+        """
+        Parse JSON delta format (v5_unified):
+        {
+          "ADD": [{"tag": "TAG", "text": "..."}],
+          "UPDATE": {"old_line": {"DEPOIS": "new_line"}},
+          "REMOVE": ["line_to_remove"],
+          "CONTEXTO_RECENTE": "..."
+        }
+        """
+        delta = json.loads(raw)
 
-            if l.startswith("## IDs_NOVO"):
-                in_sec = "ADD"
-                continue
-            elif l.startswith("## IDs_ATUALIZAR"):
-                in_sec = "UPDATE"
-                continue
-            elif l.startswith("## REMOVE"):
-                in_sec = "REMOVE"
-                continue
-            elif l.startswith("---"):
-                continue
-            elif l.startswith("|"):
-                continue  # Tabela de operacoes (ignora, usa conteudo das secoes)
+        if not isinstance(delta, dict):
+            raise ValueError(
+                "Delta JSON deve ser um objeto ({}) com chaves ADD, UPDATE, REMOVE."
+            )
 
-            if in_sec == "ADD":
-                m = re.match(r"(\d+)\.\s*\[(.*?)\]\s*(.*)", l)
-                if m:
-                    delta["ADD"].append(
-                        {"id": int(m.group(1)), "tag": m.group(2), "text": m.group(3)}
-                    )
+        # Valida chaves obrigatorias
+        for key in ("ADD", "UPDATE", "REMOVE"):
+            if key not in delta:
+                raise ValueError(f"Chave obrigatória faltando: '{key}'")
 
-            elif in_sec == "UPDATE":
-                m = re.match(r"(\d+)\.\s*\[(ANTES|DEPOIS)\]\s*(.*)", l)
-                if m:
-                    rid = int(m.group(1))
-                    delta["UPDATE"].setdefault(rid, {})
-                    delta["UPDATE"][rid][m.group(2)] = m.group(3)
+        # Valida tipos
+        if not isinstance(delta["ADD"], list):
+            raise ValueError("'ADD' deve ser uma lista [].")
+        if not isinstance(delta["UPDATE"], dict):
+            raise ValueError("'UPDATE' deve ser um objeto {}.")
+        if not isinstance(delta["REMOVE"], list):
+            raise ValueError("'REMOVE' deve ser uma lista [].")
 
-            elif in_sec == "REMOVE":
-                m = re.match(r"(\d+)", l)
-                if m:
-                    delta["REMOVE"].append(int(m.group(1)))
+        # Valida estrutura de ADD
+        for idx, item in enumerate(delta["ADD"]):
+            if not isinstance(item, dict) or "tag" not in item or "text" not in item:
+                raise ValueError(f"ADD[{idx}] deve ter 'tag' e 'text'.")
 
         return delta
 
