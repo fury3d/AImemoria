@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Aplicador de Memória
+Comment=Aplica deltas de memória de agentes IA com segurança
+# ATENÇÃO: Substitua /CAMINHO/ABSOLUTO/PARA por seu caminho real
+Exec=python3 /CAMINHO/ABSOLUTO/PARA/scripts/memoria_delta_gui.py
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupNotify=false

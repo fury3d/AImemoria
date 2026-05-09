@@ -105,7 +105,7 @@ Reconhece:
 
 ---
 
-## FORMATO: /memoria — GERAR DELTA (JSON)
+## FORMATO: /memoria — GERAR DELTA
 
 ### Pre-check (interno, nao exibir)
 
@@ -123,15 +123,19 @@ USUARIO: Acabei de instalar o driver NVIDIA 550. Sem mais erros de Xorg.
 USUARIO: /memoria
 
 AGENTE:
-```json
-{
-  "data": "2025-01-15",
-  "ADD": [ { "tag": "INFO", "text": "Driver NVIDIA 550 instalado. Xorg estavel." } ],
-  "UPDATE": {},
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Instalado driver NVIDIA 550; Xorg rodando sem erro."
-}
-```
+--- MEMORIA_DELTA
+data: 2025-01-15
+
+| # | ID | ACAO |
+|---|---|---|
+| 1 | + | ADD |
+
+## IDs_NOVO
+12. [INFO] Driver NVIDIA 550 instalado. Xorg estavel.
+
+## CONTEXTO_RECENTE
+- Instalado driver NVIDIA 550; Xorg rodando sem erro.
+---
 ```
 
 **Exemplo 2: /memoria com atualizacao**
@@ -141,15 +145,24 @@ USUARIO: Troquei o modelo do Qwen 2.5 7B pro 72B. Rodando com 64k contexto.
 USUARIO: /memoria
 
 AGENTE:
-```json
-{
-  "data": "2025-01-15",
-  "ADD": [ { "tag": "INFO", "text": "VRAM usage: 14GB com Qwen 72B" } ],
-  "UPDATE": { "8": "Modelo: Qwen 2.5 72B local, 64k contexto" },
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Escalado Qwen 7B→72B; 64k contexto ativo; VRAM em 14GB."
-}
-```
+--- MEMORIA_DELTA
+data: 2025-01-15
+
+| # | ID | ACAO |
+|---|---|---|
+| 1 | U #8 | UPDATE |
+| 2 | + | ADD |
+
+## IDs_ATUALIZAR
+8. [ANTES] [INFO] Modelo: Qwen 2.5 7B local
+8. [DEPOIS] [INFO] Modelo: Qwen 2.5 72B local, 64k contexto
+
+## IDs_NOVO
+13. [INFO] VRAM usage: 14GB com Qwen 72B
+
+## CONTEXTO_RECENTE
+- Escalado Qwen 7B→72B; 64k contexto ativo; VRAM em 14GB.
+---
 ```
 
 **Exemplo 3: /memoria sem nada novo**
@@ -169,15 +182,21 @@ USUARIO: Desinstalei o Insync. Migrei tudo pro rclone.
 USUARIO: /memoria
 
 AGENTE:
-```json
-{
-  "data": "2025-01-15",
-  "ADD": [],
-  "UPDATE": { "16": "Sync: rclone apenas (Insync removido)" },
-  "REMOVE": [15],
-  "CONTEXTO_RECENTE": "Removido Insync; migrado sync total para rclone."
-}
-```
+--- MEMORIA_DELTA
+data: 2025-01-15
+
+| # | ID | ACAO |
+|---|---|---|
+| 1 | - #15 | REMOVE |
+| 2 | U #16 | UPDATE |
+
+## IDs_ATUALIZAR
+16. [ANTES] [INFO] Sync: Insync + rclone configurados
+16. [DEPOIS] [INFO] Sync: rclone apenas (Insync removido)
+
+## CONTEXTO_RECENTE
+- Removido Insync; migrado sync total para rclone.
+---
 ```
 
 **Exemplo 5: /memoria com varios itens**
@@ -188,44 +207,61 @@ USUARIO: Hardware mapeado. Ryzen 9 5900X, RTX 4070 Ti SUPER, 32GB DDR4.
 USUARIO: /memoria
 
 AGENTE:
-```json
-{
-  "data": "2025-01-15",
-  "ADD": [
-    { "tag": "INFO", "text": "CPU: Ryzen 9 5900X, limit thermal 85C" },
-    { "tag": "INFO", "text": "GPU: RTX 4070 Ti SUPER, 16GB VRAM" },
-    { "tag": "INFO", "text": "RAM: 32GB DDR4" },
-    { "tag": "CRITICO", "text": "fstab configurado com UUIDs" }
-  ],
-  "UPDATE": {},
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Mapeado hardware: Ryzen 5900X, RTX 4070TiS, 32GB. Thermal 85C p/ clima 30C."
-}
-```
+--- MEMORIA_DELTA
+data: 2025-01-15
+
+| # | ID | ACAO |
+|---|---|---|
+| 1 | + | ADD |
+| 2 | + | ADD |
+| 3 | + | ADD |
+| 4 | + | ADD |
+
+## IDs_NOVO
+18. [INFO] CPU: Ryzen 9 5900X, limit thermal 85C
+19. [INFO] GPU: RTX 4070 Ti SUPER, 16GB VRAM
+20. [INFO] RAM: 32GB DDR4
+21. [CRITICO] fstab configurado com UUIDs
+
+## CONTEXTO_RECENTE
+- Mapeado hardware: Ryzen 5900X, RTX 4070TiS, 32GB. Thermal 85C p/ clima 30C.
+---
 ```
 
 ### Template de saida
 
 Quando /memoria for acionado, a saida DEVE seguir EXATAMENTE:
 
-```json
-{
-  "data": "YYYY-MM-DD",
-  "ADD": [ { "tag": "TAG", "text": "descricao concisa do novo fato" } ],
-  "UPDATE": { "ID_NUMERICO": "texto novo substituindo" },
-  "REMOVE": [ ID_NUMERICO ],
-  "CONTEXTO_RECENTE": "resumo denso 1-3 linhas desta sessao"
-}
+```
+--- MEMORIA_DELTA
+data: YYYY-MM-DD
+
+| # | ID | ACAO |
+|---|---|---|
+| 1 | +/-/U #X | ADD/REMOVE/UPDATE |
+
+## IDs_NOVO
+XX. [TAG] descricao concisa do novo fato
+
+## IDs_ATUALIZAR
+YY. [ANTES] texto antigo existente
+YY. [DEPOIS] texto novo substituindo
+
+## CONTEXTO_RECENTE
+- resumo denso 1-3 linhas desta sessao
+---
 ```
 
 **Regras:**
-1. Responda APENAS com um bloco JSON valido (use backticks `json`).
-2. O JSON deve ser 100% valido (sem virgulas extras, chaves fechadas).
-3. `ADD` e uma lista de objetos `{ "tag": "...", "text": "..." }`.
-4. `UPDATE` e um objeto onde a chave e o ID numerico (string) e o valor e o texto novo.
-5. `REMOVE` e uma lista de IDs numericos.
-6. `CONTEXTO_RECENTE` e uma string simples.
-7. NADA antes nem depois. So o JSON.
+1. COMECE com `--- MEMORIA_DELTA`. SEMPRE. Sem excecao.
+2. Tabela de operacoes mostre cada acao em uma linha.
+3. `IDs_NOVO` apenas novos itens (proximo ID disponivel).
+4. `IDs_ATUALIZAR` apenas itens que mudaram (ANTES + DEPOIS).
+5. `CONTEXTO_RECENTE` 1-3 linhas maximo.
+6. TERMINE com `---`. Feche o bloco.
+7. NADA antes nem depois. So o template. Sem explicacao.
+
+**Simbolos:** `+` = ADD | `- #X` = REMOVE | `U #X` = UPDATE
 
 **Se NADA relevante:** responda apenas `OK. Nada novo para memorizar.`
 
@@ -395,16 +431,3 @@ STATUS DA MEMORIA
 6. NUNCA omita a numeração nos itens do IDs_NOVO (deve ser: 12. [TAG] texto)
 7. SECCAO SEMPRE COM ## E CONTEXTO COM -
 8. FECHO SEMPRE COM ---
-
-
----
-
-### PASSO FINAL (OBRIGATÓRIO)
-Antes de entregar o output, o modelo deve validar:
-1. O JSON é 100% válido (sem vírgulas extras, chaves fechadas)?
-2. As chaves `ADD`, `UPDATE`, `REMOVE` e `CONTEXTO_RECENTE` estão presentes?
-3. `ADD` é uma lista de objetos `{ "tag": ..., "text": ... }`?
-4. `UPDATE` é um objeto onde chaves são IDs (strings) e valores são textos?
-5. `REMOVE` é uma lista de IDs numéricos?
-
-SE ALGUMA COISA FALTAR OU O JSON ESTIVER INVÁLIDO, REGENERE O BLOCO ANTES DE RESPONDER.
