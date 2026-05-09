@@ -459,18 +459,32 @@ class MemoriaApp(tk.Tk):
         self.diff_window.title("Preview de Alterações (Diff)")
         self.diff_window.geometry("700x500")
 
+        # Scrollbar + Text
+        pad_frame = ttk.Frame(self.diff_window)
+        pad_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        scrollbar = ttk.Scrollbar(pad_frame)
+        scrollbar.pack(side="right", fill="y")
+
         txt = tk.Text(
-            self.diff_window, font=("Consolas", 10), wrap="word", bg="#f4f4f4"
+            pad_frame,
+            font=("Consolas", 10),
+            wrap="word",
+            bg="#f4f4f4",
+            yscrollcommand=scrollbar.set,
         )
-        txt.pack(fill="both", expand=True, padx=10, pady=10)
+        txt.pack(fill="both", expand=True, side="left")
+        scrollbar.config(command=txt.yview)
 
-        diff = difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm="")
-        diff_text = "".join(diff)
+        # Armazena linhas em lista (generator é esgotavel → bug se iterar 2x)
+        diff_lines = list(
+            difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm="")
+        )
 
-        if not diff_text.strip():
+        if not any(diff_lines):
             txt.insert("1.0", "Nenhuma alteração detectada.\n")
         else:
-            for line in diff:
+            for line in diff_lines:
                 if line.startswith("+"):
                     txt.insert("end", line + "\n", ("green",))
                 elif line.startswith("-"):
