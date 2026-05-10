@@ -63,37 +63,41 @@ class DeltaCollector:
         Rastreia profundidade de chaves para lidar com estruturas aninhadas.
         Retorna lista de strings JSON completas.
         """
+
+        def skip_string(text: str, start: int) -> int:
+            """Pula uma string JSON (entre aspas) e retorna posicao depois da aspa fechamento."""
+            i = start + 1  # pula aspas abertura
+            while i < len(text):
+                if text[i] == '"':
+                    return i + 1  # posicao depois da aspa fechamento
+                if text[i] == "\\":
+                    i += 2  # pula escape
+                else:
+                    i += 1
+            return i  # fim do texto
+
         blocks = []
         i = 0
         n = len(text)
         while i < n:
-            # Pula caracteres dentro de strings (entre aspas)
-            if text[i] == '"':
-                i += 1
-                while i < n and text[i] != '"':
-                    if text[i] == "\\":
-                        i += 2  # Pula escape
-                    else:
-                        i += 1
+            ch = text[i]
+            # Pula strings fora de qualquer chave
+            if ch == '"':
+                i = skip_string(text, i)
                 continue
-            if text[i] == "{":
+            if ch == "{":
                 start = i
-                depth = 1  # ja' contabiliza a chave abertura encontrada
+                depth = 1
                 i += 1
                 while i < n:
-                    ch = text[i]
-                    if ch == '"':
-                        # Pula conteudo de string
-                        i += 1
-                        while i < n and text[i] != '"':
-                            if text[i] == "\\":
-                                i += 2
-                            else:
-                                i += 1
+                    c = text[i]
+                    if c == '"':
+                        # Pula conteudo de string dentro do JSON
+                        i = skip_string(text, i)
                         continue
-                    if ch == "{":
+                    if c == "{":
                         depth += 1
-                    elif ch == "}":
+                    elif c == "}":
                         depth -= 1
                         if depth == 0:
                             blocks.append(text[start : i + 1])
