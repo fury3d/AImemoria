@@ -25,12 +25,6 @@ CONFIG_PATH = Path.home() / ".config" / "memoria_delta" / "files.json"
 # Padrão 1: JSON entre backticks (preferencial)
 RE_BACKTICK_JSON = re.compile(r"```(?:json)?\s*\n(.*?)\n```", re.DOTALL)
 
-# Padrão 2: JSON puro com chaves obrigatórias (fallback)
-RE_RAW_DELTA = re.compile(
-    r'\{[^{}]*(?:"ADD"|"UPDATE"|"REMOVE")[^{}]*\}',
-    re.DOTALL,
-)
-
 
 def _is_valid_delta(delta: dict) -> bool:
     """Valida se o JSON é um delta válido."""
@@ -62,33 +56,93 @@ class DeltaCollector:
     # ------------------------------------------------------------------ #
     # Extraction
     # ------------------------------------------------------------------ #
+    @staticmethod
+    def _find_json_blocks(text: str) -> list[str]:
+        """Encontra blocos JSON completos usando brace-matching.
+
+        Rastreia profundidade de chaves para lidar com estruturas aninhadas.
+        Retorna lista de strings JSON completas.
+        """
+        blocks = []
+        i = 0
+        n = len(text)
+        while i < n:
+            # Pula caracteres dentro de strings (entre aspas)
+            if text[i] == '"':
+                i += 1
+                while i < n and text[i] != '"':
+                    if text[i] == "\\":
+                        i += 2  # Pula escape
+                    else:
+                        i += 1
+                continue
+            if text[i] == "{":
+                start = i
+                depth = 0
+                i += 1
+                while i < n:
+                    ch = text[i]
+                    if ch == '"':
+                        # Pula conteudo de string
+                        i += 1
+                        while i < n and text[i] != '"':
+                            if text[i] == "\\":
+                                i += 2
+                            else:
+                                i += 1
+                        continue
+                    if ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                        if depth == 0:
+                            blocks.append(text[start : i + 1])
+                            i += 1
+                            break
+                    i += 1
+                continue
+            i += 1
+        return blocks
+
     def extract_pending_deltas(self) -> list[dict]:
         """Extrai todos os blocos JSON válidos do arquivo."""
         content = self.file_path.read_text(encoding="utf-8")
         deltas = []
+        seen_positions = set()  # Evita duplicatas
 
         # Padrão 1: JSON entre backticks (preferencial)
         for match in RE_BACKTICK_JSON.finditer(content):
             json_str = match.group(1).strip()
+            start_pos = match.start()
+            if start_pos in seen_positions:
+                continue
             try:
                 delta = json.loads(json_str)
                 if _is_valid_delta(delta):
                     deltas.append(delta)
+                    seen_positions.add(start_pos)
             except json.JSONDecodeError:
                 self.parse_errors.append(
                     f"JSON inválido (backticks): {json_str[:60]}..."
                 )
 
-        # Padrão 2: JSON puro (fallback)
-        if not deltas:
-            for match in RE_RAW_DELTA.finditer(content):
-                json_str = match.group(0).strip()
-                try:
-                    delta = json.loads(json_str)
-                    if _is_valid_delta(delta):
-                        deltas.append(delta)
-                except json.JSONDecodeError:
-                    self.parse_errors.append(f"JSON inválido (raw): {json_str[:60]}...")
+        # Padrão 2: JSON puro via brace-matching (fallback)
+        # Pula blocos ja extraidos (backticks)
+        backtick_spans = set()
+        for match in RE_BACKTICK_JSON.finditer(content):
+            for pos in range(match.start(), match.end()):
+                backtick_spans.add(pos)
+
+        all_blocks = self._find_json_blocks(content)
+        for block in all_blocks:
+            if any(block.startswith(content[pos : pos + 5]) for pos in backtick_spans):
+                continue  # Pula ja extraidos
+            try:
+                delta = json.loads(block)
+                if _is_valid_delta(delta):
+                    deltas.append(delta)
+            except json.JSONDecodeError:
+                self.parse_errors.append(f"JSON inválido (raw): {block[:60]}...")
 
         self.pending_deltas = deltas
         return deltas
