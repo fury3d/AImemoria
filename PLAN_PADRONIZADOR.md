@@ -560,19 +560,19 @@ def clean_pending_deltas(content: str) -> str:
 ## 10. Roadmap de Implementação
 
 ### Fase 1: Motor de Padronização (Core)
-- [ ] `DeltaCollector` class com `extract_pending_deltas()`
-- [ ] Regex de detecção (backticks + JSON puro)
-- [ ] Validação de delta
-- [ ] Aplicação sequencial com deduplicação
-- [ ] Limpeza pós-extração
+- [x] `DeltaCollector` class com `extract_pending_deltas()`
+- [x] Regex de detecção (backticks + JSON puro)
+- [x] Validação de delta (`_is_valid_delta()`)
+- [x] Aplicação sequencial com deduplicação
+- [x] Limpeza pós-extração (`clean_pending_deltas()`)
 - [ ] Testes unitários
 
 ### Fase 2: Integração GUI
-- [ ] Novo botão "🔧 Padronizar"
-- [ ] Painel de deltas pendentes
-- [ ] Preview diff consolidado
-- [ ] Aplicação com backup
-- [ ] Status "x deltas pendentes"
+- [x] Novo botão "🔧 Padronizar"
+- [x] Painel de deltas pendentes (`pending_panel`)
+- [x] Preview diff consolidado (`_show_diff_window`)
+- [x] Aplicação com backup (`apply_standardization()`)
+- [x] Status "x deltas pendentes" (`status_lbl`)
 
 ### Fase 3: Melhorias
 - [ ] Log de operações (o que foi aplicado, o que foi ignorado)
