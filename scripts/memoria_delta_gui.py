@@ -527,8 +527,49 @@ class MemoriaApp(tk.Tk):
 
         return "\n".join(lines) + "\n"
 
+    def _item_already_exists(self, content: str, text: str) -> bool:
+        """Verifica se um texto ja' existe em qualquer bullet do conteudo.
+
+        Compara o texto do ADD contra bullets existentes em todo o arquivo
+        (nao' so' na data atual), ignorando prefixo [TAG].
+        """
+        # Extrai partes do texto para comparacao mais flexivel
+        text_lower = text.lower().strip()
+        if not text_lower:
+            return True
+
+        for line in content.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("- "):
+                continue
+            # Remove prefixo "- " e [TAG] para comparacao
+            bullet = stripped.lstrip("- ")
+            # Pula [TAG] se presente
+            tag_end = bullet.find("] ")
+            if tag_end != -1:
+                bullet = bullet[tag_end + 2 :]
+            # Verifica se o texto ja' existe (substring ou igual)
+            if text_lower in bullet.lower() or bullet.lower() in text_lower:
+                return True
+        return False
+
     def _add_items_to_state(self, lines, items, data):
-        """Inserta ADD entries em ## ESTADO_ATUAL ### <data>."""
+        """Inserta ADD entries em ## ESTADO_ATUAL ### <data>.
+
+        Deduplica: se o texto ja' existe em qualquer bullet do arquivo, pula.
+        """
+        content_text = "\n".join(lines)
+
+        # Filtra itens duplicados
+        unique_items = [
+            it
+            for it in items
+            if not self._item_already_exists(content_text, it["text"])
+        ]
+
+        if not unique_items:
+            return lines  # Todos duplicados, nada a fazer
+
         # Verifica se ## ESTADO_ATUAL existe
         estado_idx = None
         for i, l in enumerate(lines):
@@ -543,7 +584,7 @@ class MemoriaApp(tk.Tk):
                     "## ESTADO_ATUAL",
                     f"### {data}",
                 ]
-                + [f"- [{it.get('tag', 'INFO')}] {it['text']}" for it in items]
+                + [f"- [{it.get('tag', 'INFO')}] {it['text']}" for it in unique_items]
                 + [""]
             )
             return lines
@@ -564,7 +605,7 @@ class MemoriaApp(tk.Tk):
             # Cria ### <data> antes da próxima seção ou ao final
             insert_at = self._find_next_header(lines, estado_idx + 1, level=2)
             new_block = [f"### {data}", ""]
-            for it in items:
+            for it in unique_items:
                 new_block.append(f"- [{it.get('tag', 'INFO')}] {it['text']}")
             lines = lines[:insert_at] + new_block + lines[insert_at:]
         else:
@@ -574,7 +615,7 @@ class MemoriaApp(tk.Tk):
                 "- "
             ):
                 insert_pos += 1
-            for it in reversed(items):
+            for it in reversed(unique_items):
                 lines.insert(insert_pos, f"- [{it.get('tag', 'INFO')}] {it['text']}")
 
         return lines
