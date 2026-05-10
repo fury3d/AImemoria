@@ -1,29 +1,3 @@
-{
-  "data": "2026-05-09",
-  "ADD": [
-    {
-      "tag": "INFO",
-      "text": "CPU Ryzen 9 9900X: limite térmico 85°C configurado (clima 30°C)."
-    }
-  ],
-  "UPDATE": {},
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo."
-}
-
-{
-  "data": "2026-05-10",
-  "ADD": [
-    {
-      "tag": "INFO",
-      "text": "CPU Ryzen 9 10900X: limite térmico 85°C configurado (clima 30°C)."
-    }
-  ],
-  "UPDATE": {},
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo."
-}
-
 ## ESTADO_ATUAL
 
 ### 2026-05-09
