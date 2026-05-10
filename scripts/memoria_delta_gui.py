@@ -177,13 +177,17 @@ class DeltaCollector:
         """Remove todos os blocos JSON pendentes do conteúdo."""
         # Remove blocos entre backticks
         content = RE_BACKTICK_JSON.sub("", content)
-        # Remove blocos JSON puro (com chaves de delta)
-        content = re.sub(
-            r'\{[^{}]*(?:"ADD"|"UPDATE"|"REMOVE")[^{}]*\}',
-            "",
-            content,
-            flags=re.DOTALL,
-        )
+
+        # Remove blocos JSON puro via brace-matching
+        blocks = DeltaCollector._find_json_blocks(content)
+        for block in blocks:
+            try:
+                delta = json.loads(block)
+                if _is_valid_delta(delta):
+                    content = content.replace(block, "")
+            except json.JSONDecodeError:
+                pass
+
         # Limpa linhas vazias consecutivas (>2)
         content = re.sub(r"(\n\s*){3,}", "\n\n", content)
         return content.strip() + "\n"
