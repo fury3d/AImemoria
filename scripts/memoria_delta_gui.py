@@ -7,7 +7,6 @@ Dependência: python-tk (Linux) ou Python instalado (Windows)
 
 import difflib
 import json
-import os
 import re
 import shutil
 import sys
