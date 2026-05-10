@@ -78,7 +78,7 @@ class DeltaCollector:
                 continue
             if text[i] == "{":
                 start = i
-                depth = 0
+                depth = 1  # ja' contabiliza a chave abertura encontrada
                 i += 1
                 while i < n:
                     ch = text[i]
