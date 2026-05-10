@@ -7,7 +7,6 @@ Dependência: python-tk (Linux) ou Python instalado (Windows)
 
 import difflib
 import json
-import os
 import re
 import shutil
 import sys
@@ -20,6 +19,187 @@ from tkinter import filedialog, messagebox, ttk
 CONFIG_PATH = Path.home() / ".config" / "memoria_delta" / "files.json"
 
 
+# ---------------------------------------------------------------------------
+# Regex patterns for JSON extraction
+# ---------------------------------------------------------------------------
+# Padrão 1: JSON entre backticks (preferencial)
+RE_BACKTICK_JSON = re.compile(r"```(?:json)?\s*\n(.*?)\n```", re.DOTALL)
+
+
+def _is_valid_delta(delta: dict) -> bool:
+    """Valida se o JSON é um delta válido."""
+    if not isinstance(delta, dict):
+        return False
+    required_keys = ["ADD", "UPDATE", "REMOVE"]
+    if not all(key in delta for key in required_keys):
+        return False
+    if not isinstance(delta.get("ADD"), list):
+        return False
+    if not isinstance(delta.get("UPDATE"), dict):
+        return False
+    if not isinstance(delta.get("REMOVE"), list):
+        return False
+    for item in delta.get("ADD", []):
+        if not isinstance(item, dict) or "tag" not in item or "text" not in item:
+            return False
+    return True
+
+
+class DeltaCollector:
+    """Extrai e aplica deltas JSON pendentes a partir do arquivo .md."""
+
+    def __init__(self, file_path: Path):
+        self.file_path = file_path
+        self.pending_deltas = []
+        self.parse_errors = []
+
+    # ------------------------------------------------------------------ #
+    # Extraction
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _find_json_blocks(text: str) -> list[str]:
+        """Encontra blocos JSON completos usando brace-matching.
+
+        Rastreia profundidade de chaves para lidar com estruturas aninhadas.
+        Retorna lista de strings JSON completas.
+        """
+
+        def skip_string(text: str, start: int) -> int:
+            """Pula uma string JSON (entre aspas) e retorna posicao depois da aspa fechamento."""
+            i = start + 1  # pula aspas abertura
+            while i < len(text):
+                if text[i] == '"':
+                    return i + 1  # posicao depois da aspa fechamento
+                if text[i] == "\\":
+                    i += 2  # pula escape
+                else:
+                    i += 1
+            return i  # fim do texto
+
+        blocks = []
+        i = 0
+        n = len(text)
+        while i < n:
+            ch = text[i]
+            # Pula strings fora de qualquer chave
+            if ch == '"':
+                i = skip_string(text, i)
+                continue
+            if ch == "{":
+                start = i
+                depth = 1
+                i += 1
+                while i < n:
+                    c = text[i]
+                    if c == '"':
+                        # Pula conteudo de string dentro do JSON
+                        i = skip_string(text, i)
+                        continue
+                    if c == "{":
+                        depth += 1
+                    elif c == "}":
+                        depth -= 1
+                        if depth == 0:
+                            blocks.append(text[start : i + 1])
+                            i += 1
+                            break
+                    i += 1
+                continue
+            i += 1
+        return blocks
+
+    def extract_pending_deltas(self) -> list[dict]:
+        """Extrai todos os blocos JSON válidos do arquivo."""
+        content = self.file_path.read_text(encoding="utf-8")
+        deltas = []
+        seen_positions = set()  # Evita duplicatas
+
+        # Padrão 1: JSON entre backticks (preferencial)
+        for match in RE_BACKTICK_JSON.finditer(content):
+            json_str = match.group(1).strip()
+            start_pos = match.start()
+            if start_pos in seen_positions:
+                continue
+            try:
+                delta = json.loads(json_str)
+                if _is_valid_delta(delta):
+                    deltas.append(delta)
+                    seen_positions.add(start_pos)
+            except json.JSONDecodeError:
+                self.parse_errors.append(
+                    f"JSON inválido (backticks): {json_str[:60]}..."
+                )
+
+        # Padrão 2: JSON puro via brace-matching (fallback)
+        # Pula blocos ja extraidos (backticks)
+        backtick_spans = set()
+        for match in RE_BACKTICK_JSON.finditer(content):
+            for pos in range(match.start(), match.end()):
+                backtick_spans.add(pos)
+
+        all_blocks = self._find_json_blocks(content)
+        for block in all_blocks:
+            if any(block.startswith(content[pos : pos + 5]) for pos in backtick_spans):
+                continue  # Pula ja extraidos
+            try:
+                delta = json.loads(block)
+                if _is_valid_delta(delta):
+                    deltas.append(delta)
+            except json.JSONDecodeError:
+                self.parse_errors.append(f"JSON inválido (raw): {block[:60]}...")
+
+        self.pending_deltas = deltas
+        return deltas
+
+    # ------------------------------------------------------------------ #
+    # Application
+    # ------------------------------------------------------------------ #
+    def apply_all_deltas(self, app_instance) -> str:
+        """Aplica todos os deltas pendentes em sequência sobre o conteúdo."""
+        content = self.file_path.read_text(encoding="utf-8")
+        deltas = self.extract_pending_deltas()
+
+        for delta in deltas:
+            content = app_instance._apply_delta_to_string(content, delta)
+
+        return content
+
+    def apply_all_deltas_from_content(self, content: str, app_instance) -> str:
+        """Aplica todos os deltas pendentes em sequência sobre o conteúdo dado."""
+        deltas = self.pending_deltas  # already extracted
+        for delta in deltas:
+            content = app_instance._apply_delta_to_string(
+                content, json.dumps(delta, ensure_ascii=False)
+            )
+        return content
+
+    # ------------------------------------------------------------------ #
+    # Cleanup
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def clean_pending_deltas(content: str) -> str:
+        """Remove todos os blocos JSON pendentes do conteúdo."""
+        # Remove blocos entre backticks
+        content = RE_BACKTICK_JSON.sub("", content)
+
+        # Remove blocos JSON puro via brace-matching
+        blocks = DeltaCollector._find_json_blocks(content)
+        for block in blocks:
+            try:
+                delta = json.loads(block)
+                if _is_valid_delta(delta):
+                    content = content.replace(block, "")
+            except json.JSONDecodeError:
+                pass
+
+        # Limpa linhas vazias consecutivas (>2)
+        content = re.sub(r"(\n\s*){3,}", "\n\n", content)
+        return content.strip() + "\n"
+
+
+# ---------------------------------------------------------------------------
+# GUI App
+# ---------------------------------------------------------------------------
 class MemoriaApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -113,6 +293,34 @@ class MemoriaApp(tk.Tk):
             state="disabled",
         )
         self.btn_apply.pack(side="left", fill="x", expand=True, padx=5)
+
+        # PADRONIZAÇÃO
+        std_frame = ttk.LabelFrame(
+            self, text="Padronização de Deltas Pendentes", padding=5
+        )
+        std_frame.pack(fill="x", padx=10, pady=5)
+
+        std_btn_frame = ttk.Frame(std_frame)
+        std_btn_frame.pack(fill="x", padx=5, pady=5)
+
+        self.btn_standardize = ttk.Button(
+            std_btn_frame, text="🔧 Padronizar", command=self.standardize_file
+        )
+        self.btn_standardize.pack(side="left", fill="x", expand=True, padx=5)
+
+        self.btn_apply_std = ttk.Button(
+            std_btn_frame,
+            text="💾 Aplicar Padronização",
+            command=self.apply_standardization,
+            state="disabled",
+        )
+        self.btn_apply_std.pack(side="left", fill="x", expand=True, padx=5)
+
+        # Painel de deltas pendentes
+        self.pending_panel = tk.Text(
+            std_frame, height=6, font=("Consolas", 9), wrap="word", state="disabled"
+        )
+        self.pending_panel.pack(fill="x", padx=10, pady=5)
 
         # STATUS
         self.status_lbl = ttk.Label(
@@ -223,8 +431,8 @@ class MemoriaApp(tk.Tk):
             messagebox.showerror("Erro", "Gere o Preview antes de aplicar.")
             return
 
+        backup = target.with_suffix(".backup")
         try:
-            backup = target.with_suffix(".backup")
             shutil.copy2(target, backup)
             target.write_text(self._pending_new_content, encoding="utf-8")
 
@@ -256,9 +464,15 @@ class MemoriaApp(tk.Tk):
           ## CONTEXTO_RECENTE
             ### 2026-05-09
             - context entry
+
+        delta_raw pode ser um dict já parseado ou uma string JSON.
         """
         lines = content.splitlines(keepends=False)
-        delta = self._parse_delta(delta_raw)
+        # Aceita dict ou string JSON
+        if isinstance(delta_raw, dict):
+            delta = delta_raw
+        else:
+            delta = self._parse_delta(delta_raw)
         data = delta.get("data", datetime.today().strftime("%Y-%m-%d"))
 
         # 1. REMOVE (match de conteúdo nas bullets existentes)
@@ -451,6 +665,151 @@ class MemoriaApp(tk.Tk):
 
         return delta
 
+    # ------------------------------------------------------------------ #
+    # Padronização de Deltas Pendentes
+    # ------------------------------------------------------------------ #
+
+    def standardize_file(self):
+        """Escaneia o arquivo selecionado e mostra os deltas pendentes."""
+        target = self.get_selected_file()
+        if not target:
+            return
+
+        if not target.exists():
+            messagebox.showerror("Erro", f"Arquivo não encontrado:\n{target}")
+            return
+
+        collector = DeltaCollector(target)
+        deltas = collector.extract_pending_deltas()
+
+        if not deltas:
+            self.pending_panel.config(state="normal")
+            self.pending_panel.delete("1.0", "end")
+            self.pending_panel.insert("1.0", "✅ Nenhum delta pendente encontrado.\n")
+            self.pending_panel.config(state="disabled")
+            self.btn_apply_std.config(state="disabled")
+            self.status_lbl.config(
+                text="🟢 Nenhum delta pendente",
+                foreground="green",
+            )
+            return
+
+        # Mostra painel com resumo
+        self.pending_panel.config(state="normal")
+        self.pending_panel.delete("1.0", "end")
+        self.pending_panel.insert("1.0", f"📊 {len(deltas)} delta(s) pendente(s):\n\n")
+
+        for i, delta in enumerate(deltas):
+            data = delta.get("data", "sem data")
+            add_count = len(delta.get("ADD", []))
+            upd_count = len(delta.get("UPDATE", {}))
+            rem_count = len(delta.get("REMOVE", []))
+            self.pending_panel.insert(
+                "end",
+                f"[{i + 1}] {data} - ADD {add_count}, UPD {upd_count}, REM {rem_count}\n",
+            )
+
+        # Mostra erros de parse se houver
+        if collector.parse_errors:
+            self.pending_panel.insert("end", "\n⚠️ Erros de parse:\n")
+            for err in collector.parse_errors:
+                self.pending_panel.insert("end", f"  - {err}\n")
+
+        self.pending_panel.config(state="disabled")
+
+        # Habilita botão de aplicar
+        self.btn_apply_std.config(state="normal")
+        self.status_lbl.config(
+            text=f"🟡 {len(deltas)} delta(s) pendente(s)",
+            foreground="#FFA500",
+        )
+
+    def apply_standardization(self):
+        """Aplica todos os deltas pendentes e limpa o arquivo."""
+        target = self.get_selected_file()
+        if not target:
+            return
+
+        if not target.exists():
+            messagebox.showerror("Erro", f"Arquivo não encontrado:\n{target}")
+            return
+
+        # Confirmação
+        if not messagebox.askyesno(
+            "Confirmar",
+            "Aplicar todos os deltas pendentes?\n\n"
+            "Isso irá:\n"
+            "- Aplicar os deltas ao arquivo\n"
+            "- Remover os blocos JSON pendentes\n"
+            "- Criar backup automático",
+        ):
+            return
+
+        try:
+            backup = target.with_suffix(".backup")
+            shutil.copy2(target, backup)
+
+            collector = DeltaCollector(target)
+            deltas = collector.extract_pending_deltas()
+
+            if not deltas:
+                messagebox.showinfo(
+                    "Padronização", "Nenhum delta pendente para aplicar."
+                )
+                return
+
+            # Aplica deltas
+            old_content = target.read_text(encoding="utf-8")
+            new_content = self._apply_standardization_to_content(old_content, collector)
+
+            # Gera preview diff
+            self._show_diff_window(old_content, new_content)
+
+            # Salva resultado
+            target.write_text(new_content, encoding="utf-8")
+
+            messagebox.showinfo(
+                "Sucesso",
+                f"✅ Padronização aplicada!\n"
+                f"{len(deltas)} delta(s) processado(s).\n\n"
+                f"Backup salvo:\n{backup.name}",
+            )
+
+            # Atualiza painel
+            self.pending_panel.config(state="normal")
+            self.pending_panel.delete("1.0", "end")
+            self.pending_panel.insert(
+                "1.0",
+                f"✅ Padronização aplicada ({len(deltas)} delta(s))\n"
+                f"Backup: {backup.name}\n",
+            )
+            self.pending_panel.config(state="disabled")
+            self.btn_apply_std.config(state="disabled")
+
+            self.status_lbl.config(
+                text=f"✅ Padronizado em {target.name} ({datetime.now().strftime('%H:%M:%S')})",
+                foreground="green",
+            )
+
+        except Exception as e:
+            messagebox.showerror("Erro", f"❌ Falha ao padronizar:\n{e}")
+
+    def _apply_standardization_to_content(
+        self, content: str, collector: DeltaCollector
+    ) -> str:
+        """Aplica todos os deltas do collector sobre o conteúdo e limpa."""
+        # Aplica cada delta em sequência
+        for delta in collector.pending_deltas:
+            content = self._apply_delta_to_string(content, delta)
+
+        # Limpa blocos JSON pendentes
+        content = DeltaCollector.clean_pending_deltas(content)
+
+        return content
+
+    # ------------------------------------------------------------------ #
+    # Diff UI
+    # ------------------------------------------------------------------ #
     def _show_diff_window(self, old, new):
         if hasattr(self, "diff_window") and self.diff_window:
             self.diff_window.destroy()

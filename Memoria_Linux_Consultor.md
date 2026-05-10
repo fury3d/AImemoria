@@ -1,31 +1,8 @@
-{
-  "data": "2026-05-09",
-  "ADD": [
-    {
-      "tag": "INFO",
-      "text": "CPU Ryzen 9 9900X: limite térmico 85°C configurado (clima 30°C)."
-    }
-  ],
-  "UPDATE": {},
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo."
-}
-
-{
-  "data": "2026-05-10",
-  "ADD": [
-    {
-      "tag": "INFO",
-      "text": "CPU Ryzen 9 10900X: limite térmico 85°C configurado (clima 30°C)."
-    }
-  ],
-  "UPDATE": {},
-  "REMOVE": [],
-  "CONTEXTO_RECENTE": "Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo."
-}
-
 ## ESTADO_ATUAL
 
+### 2026-05-10
+
+- [INFO] CPU Ryzen 9 10900X: limite térmico 85°C configurado (clima 30°C).
 ### 2026-05-09
 - [INFO] CPU Ryzen 9 9900X: limite térmico 85°C configurado.
 - [TAG] Discos NTFS fixos em `/mnt/ssd_2tb` e `/mnt/Windows1TB`
@@ -34,6 +11,7 @@
 - [TAG] Opção `nofail` ativa para prevenir falha crítica no boot
 - [TAG] Ponto de montagem para Obsidian: `/mnt/ssd_2tb/Obsidian`
 - [TAG] Ponto de montagem para LM Studio: `/mnt/ssd_2tb/DEV/_LMSTUDIOMODELS/`
+- [INFO] CPU Ryzen 9 9900X: limite térmico 85°C configurado (clima 30°C).
 
 ### 2026-05-08
 
@@ -52,6 +30,10 @@
 
 ## CONTEXTO_RECENTE
 
+### 2026-05-10
+- Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo.
+### 2026-05-09
+- Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo.
 ### 2026-05-10
 - Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo.
 ### 2026-05-09

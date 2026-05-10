@@ -1,7 +1,33 @@
+{
+  "data": "2026-05-09",
+  "ADD": [
+    {
+      "tag": "INFO",
+      "text": "CPU Ryzen 9 9900X: limite térmico 85°C configurado (clima 30°C)."
+    }
+  ],
+  "UPDATE": {},
+  "REMOVE": [],
+  "CONTEXTO_RECENTE": "Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo."
+}
+
+{
+  "data": "2026-05-10",
+  "ADD": [
+    {
+      "tag": "INFO",
+      "text": "CPU Ryzen 9 10900X: limite térmico 85°C configurado (clima 30°C)."
+    }
+  ],
+  "UPDATE": {},
+  "REMOVE": [],
+  "CONTEXTO_RECENTE": "Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo."
+}
+
 ## ESTADO_ATUAL
 
 ### 2026-05-09
-
+- [INFO] CPU Ryzen 9 9900X: limite térmico 85°C configurado.
 - [TAG] Discos NTFS fixos em `/mnt/ssd_2tb` e `/mnt/Windows1TB`
 - [TAG] `fstab` configurado com UUIDs: `B8306050306017A0` e `9C1E692B1E68FF9E`
 - [TAG] Montagem via `ntfs-3g` com permissões totais (`umask=000`, `uid/gid=1000`)  
@@ -26,9 +52,10 @@
 
 ## CONTEXTO_RECENTE
 
+### 2026-05-10
+- Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo.
 ### 2026-05-09
 
 - Corrigida falha de montagem NTFS e erro "Read-only" causado por queda de energia/sleep usando `ntfsfix` e migração para montagem estática em `/mnt/`
 - Cofre consolidado no Windows 11 com espelhamento direto no disco D:, garantindo performance. Sincronia com Android/Linux confirmada após reorganização de pastas. Identificada lentidão no Linux causada por latência de rede; recomendada transição para arquivos físicos locais para abrir o Obsidian instantaneamente. 
 - Servidor local llama.cpp atualizado para o fork Buun, maximizando o limite de contexto via compressão TCQ. Erros de tool calling no RooCode resolvidos removendo templates Jinja externos e forçando respostas JSON via system prompt. Implementada integração direta da IA no Obsidian via plugins e adicionado bloqueio de suspensão do sistema vinculado à execução da IA.
-
