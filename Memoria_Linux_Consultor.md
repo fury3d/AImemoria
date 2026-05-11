@@ -5,17 +5,17 @@
 - [INFO] Discos NTFS fixos em `/mnt/ssd_2tb` e `/mnt/Windows1TB`
 - [INFO] `fstab` configurado com UUIDs: `B8306050306017A0` e `9C1E692B1E68FF9E`
 - [INFO] Montagem via `ntfs-3g` com permissões totais (`umask=000`, `uid/gid=1000`)  
-- [INFO] Opção `nofail` ativa para prevenir falha crítica no boot
-- [INFO] Pasta vault Obsidian: `/home/gilliard/Cofre_Obsidian/Obsidian/`
-- [INFO] Ponto de montagem para LM Studio: `/mnt/ssd_2tb/DEV/_LMSTUDIOMODELS/`
+- [INFO] Opção `nofail` ativa para prevenir falha crítica no boot #sistema #linux
+- [INFO] Pasta vault Obsidian: `/home/gilliard/Cofre_Obsidian/Obsidian/` #obsidian 
+- [INFO] Ponto de montagem para LM Studio: `/mnt/ssd_2tb/DEV/_LMSTUDIOMODELS/` #ia #llamacpp #llm #lmstudio 
 - [INFO] CPU Ryzen 9 9900X: limite térmico 85°C configurado (clima 30°C).
 
 ### 2026-05-08
 
-- [ATIVO] Servidor de IA migrado para o fork Buun (`spiritbuun/buun-llama-cpp`) compilado com GCC-14. Permite maior contexto na VRAM usando Trellis-Coded Quantization (TCQ) via parâmetros `-ctk` e `-ctv`. 
-- [ATIVO] [IA] Limites seguros de contexto na RTX 4070 Ti SUPER (16GB): Qwen 27B IQ3M atinge alto contexto (200k) pelo KV cache com o fork Bunn llama.cpp. Configuração -ctk turbo3_tcq -ctv turbo2_tcq. 
-- [ATIVO] [IA] Qwen 35B MoE não teve muita diferença de contexto com o fork llama.cpp do bunn devido ao peso base e menor KV cache. Mas ainda assim está sendo usado este fork devido ao possível ganho de precisão.
-- [CRÍTICO] [SYSTEM] Regra de Escrita: Evitar uso de partições NTFS para o Obsidian Vault devido a conflitos de permissão.
+- [ATIVO] Servidor de IA migrado para o fork Buun (`spiritbuun/buun-llama-cpp`) compilado com GCC-14. Permite maior contexto na VRAM usando Trellis-Coded Quantization (TCQ) via parâmetros `-ctk` e `-ctv`.  #ia #llamacpp #llm #bunn #qwen 
+- [ATIVO] Limites seguros de contexto na RTX 4070 Ti SUPER (16GB): Qwen 27B IQ3M atinge alto contexto (200k) pelo KV cache com o fork Bunn llama.cpp. Configuração -ctk turbo3_tcq -ctv turbo2_tcq. #ia #llamacpp #llm #bunn #qwen 
+- [ATIVO] Qwen 35B MoE não teve muita diferença de contexto com o fork llama.cpp do bunn devido ao peso base e menor KV cache. Mas ainda assim está sendo usado este fork devido ao possível ganho de precisão. #ia #llamacpp #llm #bunn #qwen 
+- [CRÍTICO] Regra de Escrita: Evitar uso de partições NTFS para o Obsidian Vault devido a conflitos de permissão. #sistema #linux #obsidian 
 
 ## CONTEXTO_RECENTE
 
