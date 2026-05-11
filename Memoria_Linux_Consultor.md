@@ -1,5 +1,8 @@
 ## ESTADO_ATUAL
 
+### 2026-05-22
+
+- [INFO] CPU Ryzen 9 12900X: limite térmico 85°C configurado (clima 30°C).
 ### 2026-05-10
 
 - [INFO] CPU Ryzen 9 10900X: limite térmico 85°C configurado (clima 30°C).
@@ -30,6 +33,8 @@
 
 ## CONTEXTO_RECENTE
 
+### 2026-05-22
+- Configurado thermal limit 105°C no Ryzen 9 12900X; mitigação de calor ambiente (30°C) via throttling preventivo.
 ### 2026-05-10
 - Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo.
 ### 2026-05-09
