@@ -22,8 +22,6 @@
 
 ## CONTEXTO_RECENTE
 
-### 2026-05-09
-- Atualizado fork turbo tan #ia #llamacpp #llm  #qwen #turboquant
 ### 2026-05-10
 - Configurado thermal limit 85°C no Ryzen 9 9900X; mitigação de calor ambiente (30°C) via throttling preventivo. #sistema #hardware
 ### 2026-05-09
