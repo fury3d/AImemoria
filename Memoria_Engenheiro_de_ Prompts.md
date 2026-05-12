@@ -1,0 +1,5 @@
+## ESTADO_ATUAL
+
+
+## CONTEXTO_RECENTE
+
