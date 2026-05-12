@@ -4,7 +4,6 @@ MODULO: Sistema de Memoria Universal (Anexo)
 INTEGRACAO: Cole este bloco no FINAL do system prompt do agente.
             Substitua os placeholders [AGENTE], [ARQUIVO_MEMORIA], etc.
 """
-
 # SISTEMA DE MEMORIA — Modulo Universal
 
 **Fonte exclusiva:** `[ARQUIVO_MEMORIA.md]`
@@ -275,3 +274,8 @@ Antes de entregar o output, o modelo deve validar:
 **SE ALGUMA COISA FALTAR OU O JSON ESTIVER INVALIDO, REGENERE O BLOCO ANTES DE RESPONDER.**
 
 ---
+
+
+```
+
+```
