@@ -50,7 +50,7 @@ AppImages: /home/gilliard/Applications/.
 ## CONTEXTO_RECENTE
 
 ### 2026-06-12
-- Acesso local via Wifi se mostrou mais rápido e estável (dispositivo longe do computador). Acesso remoto via cloudflare tunel se mostrou eficiente. Opção tailscale ativo. 
+- Acesso local n8n no s24+ via Wifi se mostrou mais rápido e estável (dispositivo longe do computador). Acesso remoto via cloudflare tunel se mostrou eficiente. Opção tailscale ativo. 
 ### 2026-06-03
 - Configuradas travas no .npmrc contra supply chain e fragmentada checagem de segurança para respeitar limite de tokens.
 ### 2026-05-15
